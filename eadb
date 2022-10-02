@@ -1,0 +1,109 @@
+#!/bin/bash
+
+function set-package {
+    echo "EADB_APP_PACKAGE=\"$1\"" > $HOME/.eadb_config
+}
+
+function get-package {
+    echo "package = $EADB_APP_PACKAGE"
+}
+
+function launch-app {
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell monkey -p $EADB_APP_PACKAGE -c android.intent.category.LAUNCHER 1
+}
+
+function scheme {
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell am start -p $EADB_APP_PACKAGE $1
+}
+
+function background-kill {
+    echo "Move to Home"
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell input keyevent 3
+    sleep 2
+    echo "am kill"
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell am kill $EADB_APP_PACKAGE
+}
+
+function perfetto-enable {
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell setprop persist.traced.enable 1
+}
+
+function perfetto-disable {
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell setprop persist.traced.enable 0
+}
+
+function shell-run-as-app {
+    echo "shell run-as $EADB_APP_PACKAGE"
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell run-as $EADB_APP_PACKAGE
+}
+
+
+function guide-app-package {
+    echo "Please set the app package first."
+    echo "  eadb set-package <package name>"
+}
+
+function guide {
+    echo "Usage:"
+    echo "    eadb [<adb global options>...] <sub command>"
+    echo
+    echo "Prerequisites:"
+    echo "  Please set path variable to adb first"
+    echo "  Please set the app package"
+    echo
+    echo "sub commands"
+    echo "  set-package <app_package_name>    Set the target app package"
+    echo "  get-package                       Print the target app package"
+    echo "  launch                            Launch the App"
+    echo "  scheme <scheme uri>               Launch the App with scheme"
+    echo "  bgkill                            Kill the App in background"
+    echo "  shell                             Open adb shell run-as app package"
+}
+
+# Load Default Config
+if [ -f "$HOME/.eadb_config" ]; then
+    source $HOME/.eadb_config
+fi
+
+# Check that App Package is settled
+if [ -z "$EADB_APP_PACKAGE" ]; then
+    if [ "set-package" != "$1" ]; then
+        guide-app-package
+        exit
+    fi
+fi
+
+# ADB Command
+while [[ $1 = -? ]]
+do
+    EADB_BYPASSING_ARGS_TO_ADB+=$1
+    case $1 in
+        -a|-d|-e|-H|-P)
+            shift 1
+            ;;
+        -s|-t|-L)
+            EADB_BYPASSING_ARGS_TO_ADB+=$2
+            shift 2
+            ;;
+    esac
+done
+
+# EADB Command
+case $1 in
+    set-package)
+        shift 1
+        set-package $1;;
+    get-package)
+        get-package;;
+    launch)
+        launch-app;;
+    scheme)
+        shift 1
+        scheme $*;;
+    bgkill)
+        background-kill;;
+    shell)
+        shell-run-as-app;;
+    *)
+        guide;;
+esac
