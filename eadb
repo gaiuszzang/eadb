@@ -13,7 +13,7 @@ function launch-app {
 }
 
 function scheme {
-    adb $EADB_BYPASSING_ARGS_TO_ADB shell am start -p $EADB_APP_PACKAGE $1
+    adb $EADB_BYPASSING_ARGS_TO_ADB shell am start -a android.intent.action.VIEW -d $1
 }
 
 function background-kill {
