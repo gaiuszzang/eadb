@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#define contents type
+TYPE_DEX='dex'
+TYPE_RES='res'
+TYPE_ASSET='asset'
+TYPE_MAINFEST='manifest'
+TYPE_ETC='etc'
+
+
+get_file_category() {
+	filepath=$1
+	if [[ $filepath == *.dex ]]; then
+		echo $TYPE_DEX
+	elif [[ $filepath == /res/* ]]; then
+		echo $TYPE_RES
+	elif [[ $filepath == /assets/* ]]; then
+		echo $TYPE_ASSET
+	elif [[ $filepath == *AndroidManifest.xml ]]; then
+		echo $TYPE_MANIFEST
+	else
+		echo $TYPE_ETC
+	fi
+}
+
+readable_file_size() {
+	size=$1
+	isPositive=true
+	if [ $size -lt 0 ]; then
+		isPositive=false
+		size=$((-size))
+	fi
+
+	if [ $size -ge 1048576 ]; then
+	    size=$(echo "scale=2;$size/1048576"| bc)M
+	elif [ $size -ge 1024 ]; then
+	    size=$(echo "scale=2;$size/1024" | bc)K
+	fi
+	if [ "$isPositive" = true ]; then
+		echo ${size}B
+	else
+		echo -${size}B
+	fi
+}
+
+
+# -----------------------------------------
+echo "Compare $1, $2"
+
+before_apk_size=( $(apkanalyzer apk file-size $1) )
+after_apk_size=( $(apkanalyzer apk file-size $2) )
+apk_diff=$(($after_apk_size - $before_apk_size))
+diffarray=( $(apkanalyzer apk compare $1 $2 --different-only --files-only) )
+
+dex_size=0
+res_size=0
+asset_size=0
+manifest_size=0
+etc_size=0
+
+for ((idx=0; idx<${#diffarray[@]}; idx=idx+4));do
+	filepath=${diffarray[idx + 3]}
+	filediff=${diffarray[idx + 2]}
+	filecategory=$( get_file_category $filepath )
+	case $filecategory in
+		$TYPE_DEX) dex_size=$((dex_size + filediff));;
+		$TYPE_RES) res_size=$((res_size + filediff));;
+		$TYPE_ASSET) asset_size=$((asset_size + filediff));;
+		$TYPE_MANIFEST) manifest_size=$((manifest_size + filediff));;
+		*) etc_size=$((etc_size + filediff));;
+	esac
+	#echo "$filepath : $filediff changed ($filecategory)"
+done
+
+echo "Apk Diff : $( readable_file_size $apk_diff )"
+echo "Dex Diff : $( readable_file_size $dex_size )"
+echo "Resource Diff : $( readable_file_size $res_size )"
+echo "Asset Diff : $( readable_file_size $asset_size )"
+echo "Manifest Diff : $( readable_file_size $manifest_size )"
+echo "Other Diff : $( readable_file_size $etc_size )"
